@@ -4,7 +4,7 @@
 Modern python3 app for interacting with API AccuWeather.
 
 ## Installation:
-1.  Create file .venv :
+1.  Create file .env :
 ```
 API_KEY = '<your api key>'  
 ACCUWEATHER_MIRROR_URL = 'http://dataservice.accuweather.com'
