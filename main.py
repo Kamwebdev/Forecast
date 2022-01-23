@@ -26,7 +26,7 @@ class AccuWeather:
 
     __name__ = "forecast"
     __author__ = "Kamil Mirończuk"
-    __license__ = "MIT"
+    __license__ = "GNU General Public License v3.0"
     __version__ = "1.1"
     __status__ = "production"
 
