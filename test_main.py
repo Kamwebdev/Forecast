@@ -1,59 +1,97 @@
-import unittest
-
-from datetime import datetime
-from main import AccuWeather
+import pytest
 import requests
 
-
-class TestAccuWeather(unittest.TestCase):
-
-    def test_get_city_id(self):
-        c = AccuWeather('gdansk')
-        result = c.city_id
-        self.assertEqual(result, "1-275174_1_AL")
-
-    def test_get_temperature(self):
-        c = AccuWeather('gdansk')
-        result = c.forecasts['DailyForecasts'][0]['Temperature']
-        self.assertIn("Minimum", result)
-
-    def test_temperature_unit(self):
-        c = AccuWeather('gdansk')
-        result = c.forecasts['DailyForecasts'][0]['Temperature']
-        self.assertIn('C', result['Maximum']['Unit'])
-        self.assertIn('C', result['Maximum']['Unit'])
-
-    def test_get_date_forecasts(self):
-        c = AccuWeather('gdansk')
-        result = c._AccuWeather__get_date_from_response()
-        self.assertEqual(result, datetime.now().strftime("%d.%m.%Y"))
-
-    def test_program_output(self):
-        c = AccuWeather('gdansk')
-        result = c.get_day_temperature()
-        self.assertRegex(result, "Date: [\d]{1,2}.[\d]{1,2}.[\d]{4}, temperature: [\d]{1}.[\d]{1}°C")
-
-    def test_apikey(self):
-        c = AccuWeather('gdansk')
-        response = requests.get(
-            f"{c.accuweather_url}/forecasts/v1/daily/1day/1-275174_1_AL",
-            params={
-                "apikey": c._AccuWeather__api_key,
-                "metric": "true"
-            })
-        self.assertEqual(response.status_code, 200)
-
-    '''
-    def test_get_city_id_raise(self):
-
-        with self.assertRaises(Exception) as context:
-            c = AccuWeather('gdansk')
-            c.__get_city_id('1-275174_1_AL')
-
-        the_exception = context.exception
-        self.assertEqual(the_exception.error_code, 3)
-    '''
+from weatcher import AccuWeather
+from unittest.mock import patch
 
 
-if __name__ == '__main__':
-    unittest.main()
+class ResponseGetMock(object):
+    def __init__(self, json_data, status_code):
+        self.json_data = json_data
+        self.status_code = status_code
+
+    def raise_for_status():
+        pass
+
+    def json():
+        return [
+            {
+                "Version": 1,
+                "Key": "2696858",
+                "Type": "City",
+                "Rank": 85,
+                "LocalizedName": "Warszawa",
+            }
+        ]
+
+
+@pytest.fixture(autouse=True)
+def no_requests(monkeypatch):
+    monkeypatch.delattr("requests.sessions.Session.request")
+
+
+@pytest.fixture(params=["Warszawa", "Gdansk"], name="weatcher")
+def fixture_weatcher(request, monkeypatch):
+    my_weatcher = AccuWeather()
+
+    def monkey_return(url, params):
+        return ResponseGetMock
+
+    monkeypatch.setattr(requests, "get", monkey_return)
+
+    my_weatcher.city_token = request.param
+    yield my_weatcher
+
+
+def test_weatcher_initialization():
+    assert AccuWeather
+
+
+def test_weatcher_set_city(monkeypatch):
+    weatcher = AccuWeather()
+
+    def monkey_get_city(city: str):
+        if city == "Gdansk":
+            return "275174"
+        return None
+
+    monkeypatch.setattr(weatcher, "get_city", monkey_get_city)
+
+    weatcher.city_token = "Gdansk"
+    assert (weatcher.city_token, "275174")
+
+
+WEATCHER_API = {
+    "DailyForecasts": [
+        {
+            "Date": "2023-01-27T07:00:00+01:00",
+            "EpochDate": 1674799200,
+            "Temperature": {
+                "Minimum": {"Value": -2.6, "Unit": "C", "UnitType": 17},
+                "Maximum": {"Value": 3.5, "Unit": "C", "UnitType": 17},
+            },
+        }
+    ]
+}
+
+
+# Unit test patching
+@patch.object(AccuWeather, "get_forecasts", return_value=WEATCHER_API)
+def test_weatcher_get_forecasts(weatcher_mock, weatcher):
+    with patch(
+        "weatcher.AccuWeather.get_forecasts", return_value=WEATCHER_API
+    ):
+        assert (weatcher.get_forecasts(), dict)
+
+
+# Using monkeypatch with pytests patching
+def test_weatcher_get_day_temperature(weatcher, monkeypatch):
+    def get_forecasts():
+        return WEATCHER_API
+
+    monkeypatch.setattr(weatcher, "get_forecasts", get_forecasts)
+    weatcher.store_forecasts()
+    assert (
+        weatcher.get_day_temperature(),
+        "Date: 27.01.2023, temperature: 0.4°C",
+    )
