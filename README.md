@@ -26,5 +26,5 @@ Date: 16.01.2022, temperature: 1.6°C
 ```
 ## Running the tests
 ```
-python -m unittest test_main.py
+pytest .\weatcher_test.py
 ```
