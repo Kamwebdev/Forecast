@@ -1,7 +1,7 @@
 
 # Forecast
 
-Modern python3 app for interacting with API AccuWeather.
+Modern python3 app for interacting with API AccuWeather. Based on my [article](https://blog.kamdev.pl/post/12).
 
 ## Installation:
 1.  Create file .env :
